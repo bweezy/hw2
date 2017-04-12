@@ -50,13 +50,39 @@ void handle_files_request(int fd) {
    * any existing code.
    */
 
+
+
   struct http_request *request = http_request_parse(fd);
 
-  printf("method: %s\n", request->method);
-  printf("path: %s\n", server_files_directory);
+  char *absPath = malloc(strlen(request->path) + strlen(server_files_directory));
+  strcpy(absPath, server_files_directory);
+  strcat(absPath, request->path);
+
+  //printf("absPath: %s\n", absPath);
+  //printf("%d\n", access(absPath,F_OK));
+
+
+  if(access(absPath, F_OK) == -1){
+  	http_start_response(fd,404);
+  	return;
+  }
+
+  FILE *transfer = fopen(absPath, "r");
+
 
   http_start_response(fd, 200);
-  http_send_header(fd, "Content-Type", "text/html");
+  http_send_header(fd, "Content-Type", http_get_mime_type(absPath));
+  //http_send_header(fd, )
+
+
+  /*
+  printf("method: %s\n", request->method);
+  printf("path: %s\n", request->path);
+  printf("directory: %s\n", server_files_directory);
+	*/
+
+  //http_start_response(fd, 200);
+  //http_send_header(fd, "Content-Type", "text/html");
   http_end_headers(fd);
   http_send_string(fd,
       "<center>"
