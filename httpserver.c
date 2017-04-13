@@ -67,29 +67,33 @@ void handle_files_request(int fd) {
   	return;
   }
 
-  FILE *transfer = fopen(absPath, "r");
+  //check if path is a file
+  struct stat path_stat;
+  stat(absPath, &path_stat);
+  if(S_ISREG(path_stat.st_mode)){
+		
+		FILE *transfer = fopen(absPath, "r");
+  	fseek(transfer, 0L, SEEK_END);
+  	int byteNum = ftell(transfer);
+  	rewind(transfer);
+  	char *data = malloc(byteNum);
+  	fread(data, byteNum, 1, transfer);
 
 
-  http_start_response(fd, 200);
-  http_send_header(fd, "Content-Type", http_get_mime_type(absPath));
-  //http_send_header(fd, )
+  	http_start_response(fd, 200);
+  	http_send_header(fd, "Content-Type", http_get_mime_type(absPath));
+  	http_end_headers(fd);
+  	http_send_data(fd, data, byteNum);
+  	  free(data);
+  }
 
 
-  /*
-  printf("method: %s\n", request->method);
-  printf("path: %s\n", request->path);
-  printf("directory: %s\n", server_files_directory);
-	*/
+  free(absPath);
 
-  //http_start_response(fd, 200);
-  //http_send_header(fd, "Content-Type", "text/html");
-  http_end_headers(fd);
-  http_send_string(fd,
-      "<center>"
-      "<h1>Welcome to httpserver!</h1>"
-      "<hr>"
-      "<p>Nothing's here yet.</p>"
-      "</center>");
+
+
+
+
 }
 
 
