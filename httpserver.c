@@ -32,6 +32,29 @@ char *server_proxy_hostname;
 int server_proxy_port;
 
 
+
+
+
+
+void http_data_wrapper(int fd, char *path){
+
+	FILE *transfer = fopen(path, "r");
+	fseek(transfer, 0L, SEEK_END);
+	int byteNum = ftell(transfer);
+	rewind(transfer);
+	char *data = malloc(byteNum);
+	fread(data, byteNum, 1, transfer);
+
+	http_start_response(fd, 200);
+	http_send_header(fd, "Content-Type", http_get_mime_type(path));
+	http_end_headers(fd);
+	http_send_data(fd, data, byteNum);
+	close(fd);
+  free(data);
+
+}
+
+
 /*
  * Reads an HTTP request from stream (fd), and writes an HTTP response
  * containing:
@@ -72,7 +95,8 @@ void handle_files_request(int fd) {
   stat(absPath, &path_stat);
   if(S_ISREG(path_stat.st_mode)){
 		
-		FILE *transfer = fopen(absPath, "r");
+		http_data_wrapper(fd, absPath);
+		/*FILE *transfer = fopen(absPath, "r");
   	fseek(transfer, 0L, SEEK_END);
   	int byteNum = ftell(transfer);
   	rewind(transfer);
@@ -84,16 +108,23 @@ void handle_files_request(int fd) {
   	http_send_header(fd, "Content-Type", http_get_mime_type(absPath));
   	http_end_headers(fd);
   	http_send_data(fd, data, byteNum);
-  	  free(data);
+	  free(data);*/
+  }else if (S_ISDIR(path_stat.st_mode)){
+
+  	char *indexPath = malloc(strlen(absPath) + 1 + strlen("index.html"));
+  	strcpy(indexPath, absPath);
+  	strcat(indexPath, "/");
+  	strcat(indexPath, "index.html");
+
+  	if(access(absPath, R_OK) != -1){
+  		http_data_wrapper(fd, indexPath);
+  	}
+
+
+
+
   }
-
-
   free(absPath);
-
-
-
-
-
 }
 
 
