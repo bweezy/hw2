@@ -90,9 +90,14 @@ void handle_files_request(int fd) {
   //check if path is a file
   struct stat path_stat;
   stat(absPath, &path_stat);
+
+
   if(S_ISREG(path_stat.st_mode)){	
+  	//if target is a file
 		http_data_wrapper(fd, absPath);
   }else if (S_ISDIR(path_stat.st_mode)){
+  	//if the target is a directory
+
 
   	char *indexPath = malloc(strlen(absPath) + 1 + strlen("index.html"));
   	strcpy(indexPath, absPath);
@@ -110,11 +115,29 @@ void handle_files_request(int fd) {
   		if(dir == NULL){
   			perror("Cannot Open Directory");
   		}else{
+
   			struct dirent *dp;
+				http_start_response(fd, 200);
+				http_send_header(fd, "Content-Type", "text/html");
+				http_end_headers(fd);
+
+				char *htmlForm = "<html><body><a href = %s>%s</a></body></html>";
+
   			while((dp = readdir(dir)) != NULL){
-	  			printf("length: %d\ttype: %c\tname:%s\t\n", dp->d_reclen, dp->d_type, dp->d_name);
-	  			printf("directory opened\n");
+
+  				if(strcmp(dp->d_name, "..") == 0){
+  					http_send_string(fd, "<html><body><a href =\"../\">Parent Directory</a></body></html>");
+  				}else if(strcmp(dp->d_name, ".") == 0){
+  					continue;
+  				}else{
+  					char *sendBuf = malloc(strlen(dp->d_name)*2+1+41); //41 length of html string w/o name
+  					sprintf(sendBuf, htmlForm,dp->d_name, dp->d_name);
+  					http_send_string(fd, sendBuf);
+  					free(sendBuf);
+  				}
+  				http_send_string(fd,"<br>");
 	  		}
+	  		close(fd);
   		}
   	}
 	}
