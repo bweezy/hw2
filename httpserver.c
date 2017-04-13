@@ -72,9 +72,6 @@ void handle_files_request(int fd) {
    * TODO: Your solution for Task 1 goes here! Feel free to delete/modify *
    * any existing code.
    */
-
-
-
   struct http_request *request = http_request_parse(fd);
 
   char *absPath = malloc(strlen(request->path) + strlen(server_files_directory));
@@ -93,22 +90,8 @@ void handle_files_request(int fd) {
   //check if path is a file
   struct stat path_stat;
   stat(absPath, &path_stat);
-  if(S_ISREG(path_stat.st_mode)){
-		
+  if(S_ISREG(path_stat.st_mode)){	
 		http_data_wrapper(fd, absPath);
-		/*FILE *transfer = fopen(absPath, "r");
-  	fseek(transfer, 0L, SEEK_END);
-  	int byteNum = ftell(transfer);
-  	rewind(transfer);
-  	char *data = malloc(byteNum);
-  	fread(data, byteNum, 1, transfer);
-
-
-  	http_start_response(fd, 200);
-  	http_send_header(fd, "Content-Type", http_get_mime_type(absPath));
-  	http_end_headers(fd);
-  	http_send_data(fd, data, byteNum);
-	  free(data);*/
   }else if (S_ISDIR(path_stat.st_mode)){
 
   	char *indexPath = malloc(strlen(absPath) + 1 + strlen("index.html"));
@@ -116,15 +99,26 @@ void handle_files_request(int fd) {
   	strcat(indexPath, "/");
   	strcat(indexPath, "index.html");
 
-  	if(access(absPath, R_OK) != -1){
+  	//printf("abs path: %s\taccess return:%d\n", absPath, access(absPath, R_OK));
+
+  	if(access(indexPath, R_OK) != -1){
   		http_data_wrapper(fd, indexPath);
+  	}else{
+
+  		DIR *dir = opendir(absPath);
+
+  		if(dir == NULL){
+  			perror("Cannot Open Directory");
+  		}else{
+  			struct dirent *dp;
+  			while((dp = readdir(dir)) != NULL){
+	  			printf("length: %d\ttype: %c\tname:%s\t\n", dp->d_reclen, dp->d_type, dp->d_name);
+	  			printf("directory opened\n");
+	  		}
+  		}
   	}
-
-
-
-
-  }
-  free(absPath);
+	}
+	free(absPath);
 }
 
 
