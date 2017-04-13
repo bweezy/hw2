@@ -32,6 +32,29 @@ char *server_proxy_hostname;
 int server_proxy_port;
 
 
+
+
+
+
+void http_data_wrapper(int fd, char *path){
+
+	FILE *transfer = fopen(path, "r");
+	fseek(transfer, 0L, SEEK_END);
+	int byteNum = ftell(transfer);
+	rewind(transfer);
+	char *data = malloc(byteNum);
+	fread(data, byteNum, 1, transfer);
+
+	http_start_response(fd, 200);
+	http_send_header(fd, "Content-Type", http_get_mime_type(path));
+	http_end_headers(fd);
+	http_send_data(fd, data, byteNum);
+	close(fd);
+  free(data);
+
+}
+
+
 /*
  * Reads an HTTP request from stream (fd), and writes an HTTP response
  * containing:
@@ -49,21 +72,76 @@ void handle_files_request(int fd) {
    * TODO: Your solution for Task 1 goes here! Feel free to delete/modify *
    * any existing code.
    */
-
   struct http_request *request = http_request_parse(fd);
 
-  printf("method: %s\n", request->method);
-  printf("path: %s\n", server_files_directory);
+  char *absPath = malloc(strlen(request->path) + strlen(server_files_directory));
+  strcpy(absPath, server_files_directory);
+  strcat(absPath, request->path);
 
-  http_start_response(fd, 200);
-  http_send_header(fd, "Content-Type", "text/html");
-  http_end_headers(fd);
-  http_send_string(fd,
-      "<center>"
-      "<h1>Welcome to httpserver!</h1>"
-      "<hr>"
-      "<p>Nothing's here yet.</p>"
-      "</center>");
+  //printf("absPath: %s\n", absPath);
+  //printf("%d\n", access(absPath,F_OK));
+
+
+  if(access(absPath, F_OK) == -1){
+  	http_start_response(fd,404);
+  	return;
+  }
+
+  //check if path is a file
+  struct stat path_stat;
+  stat(absPath, &path_stat);
+
+
+  if(S_ISREG(path_stat.st_mode)){	
+  	//if target is a file
+		http_data_wrapper(fd, absPath);
+  }else if (S_ISDIR(path_stat.st_mode)){
+  	//if the target is a directory
+
+
+  	char *indexPath = malloc(strlen(absPath) + 1 + strlen("index.html"));
+  	strcpy(indexPath, absPath);
+  	strcat(indexPath, "/");
+  	strcat(indexPath, "index.html");
+
+  	//printf("abs path: %s\taccess return:%d\n", absPath, access(absPath, R_OK));
+
+  	if(access(indexPath, R_OK) != -1){
+  		http_data_wrapper(fd, indexPath);
+  	}else{
+
+  		DIR *dir = opendir(absPath);
+
+  		if(dir == NULL){
+  			perror("Cannot Open Directory");
+  		}else{
+
+  			struct dirent *dp;
+				http_start_response(fd, 200);
+				http_send_header(fd, "Content-Type", "text/html");
+				http_end_headers(fd);
+
+				char *htmlForm = "<html><body><a href = %s>%s</a></body></html>";
+
+  			while((dp = readdir(dir)) != NULL){
+
+  				if(strcmp(dp->d_name, "..") == 0){
+  					http_send_string(fd, "<html><body><a href =\"../\">Parent Directory</a></body></html>");
+  				}else if(strcmp(dp->d_name, ".") == 0){
+  					continue;
+  				}else{
+  					char *sendBuf = malloc(strlen(dp->d_name)*2+1+41); //41 length of html string w/o name
+  					sprintf(sendBuf, htmlForm,dp->d_name, dp->d_name);
+  					http_send_string(fd, sendBuf);
+  					free(sendBuf);
+  				}
+  				http_send_string(fd,"<br>");
+	  		}
+	  		close(fd);
+  		}
+  	}
+	}
+	free(absPath);
 }
 
 
